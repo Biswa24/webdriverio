@@ -1341,3 +1341,26 @@ export function getObservabilityProduct(options: (BrowserstackConfig & Options.T
         ? 'app-automate'
         : (isTurboScale(options) ? 'turboscale' : 'automate')
 }
+
+export function isUserTurboScaleManged(config: Options.Testrunner): boolean {
+    let isManagedUser = false
+
+    const requestOptions = {
+        json: config,
+        username: getBrowserStackUser(config),
+        password: getBrowserStackKey(config),
+    }
+
+    // TODO - add apiUrl in constants and pass it here
+    nodeRequest('GET', 'managed-grid-checks', requestOptions, '')
+        .then((response: any) => {
+            log.debug(`Responses : ${JSON.stringify(response)}`)
+            if (response.data?.managedGridUser) {
+                isManagedUser = true
+            }
+        })
+        .catch((error: any) => {
+            log.debug(`Error in checking if user has a valid ft plan: ${error}`)
+        })
+    return isManagedUser
+}

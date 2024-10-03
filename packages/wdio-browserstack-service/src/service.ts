@@ -16,7 +16,8 @@ import {
     isBrowserstackCapability,
     getParentSuiteName,
     isBrowserstackSession, patchConsoleLogs,
-    shouldAddServiceVersion
+    shouldAddServiceVersion,
+    isUserTurboScaleManged
 } from './util'
 import TestReporter from './reporter'
 import PerformanceTester from './performance-tester'
@@ -49,6 +50,7 @@ export default class BrowserstackService implements Services.ServiceInstance {
     private _turboScale
     private _percy
     private _percyHandler?: PercyHandler
+    private _turboScaleManagedGridUser
 
     constructor (
         options: BrowserstackConfig & Options.Testrunner,
@@ -63,6 +65,7 @@ export default class BrowserstackService implements Services.ServiceInstance {
         this._percy =  process.env.BROWSERSTACK_PERCY === 'true'
         this._percyCaptureMode = process.env.BROWSERSTACK_PERCY_CAPTURE_MODE
         this._turboScale = this._options.turboScale
+        this._turboScaleManagedGridUser = isUserTurboScaleManged(this._config)
 
         if (this._observability) {
             this._config.reporters?.push(TestReporter)
@@ -98,7 +101,7 @@ export default class BrowserstackService implements Services.ServiceInstance {
         return fn(this._caps as Capabilities.Capabilities)
     }
 
-    beforeSession (config: Omit<Options.Testrunner, 'capabilities'>) {
+    beforeSession (config: Omit<Options.Testrunner, 'capabilities'>, caps: Capabilities.RemoteCapability) {
         // if no user and key is specified even though a browserstack service was
         // provided set user and key with values so that the session request
         // will fail
@@ -112,6 +115,12 @@ export default class BrowserstackService implements Services.ServiceInstance {
         }
         this._config.user = config.user
         this._config.key = config.key
+
+        // use caps to identify the automate session vs turboscale and according override the hostname if user has managed grid plan
+        if (this._turboScaleManagedGridUser) {
+            log.info(`Caps for the session ${JSON.stringify(caps)}`)
+            this._config.hostname = ''
+        }
     }
 
     async before(caps: Capabilities.RemoteCapability, specs: string[], browser: Browser<'async'> | MultiRemoteBrowser<'async'>) {
